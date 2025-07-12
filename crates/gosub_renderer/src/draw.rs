@@ -194,6 +194,9 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
 
         let max_x = root_size.width - size.width as f32;
         let max_y = root_size.height - size.height as f32;
+        if max_y < 0 as f32 {
+            return;
+        }
 
         let x = x.min(0.0).max(-max_x);
         let y = y.min(0.0).max(-max_y);
