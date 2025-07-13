@@ -40,7 +40,7 @@ impl<C: ModuleConfiguration> Window<'_, C> {
                     return Ok(());
                 };
 
-                tab.tx.blocking_send(InstanceMessage::Redraw(size))?;
+                tab.tx.blocking_send(InstanceMessage::Redraw(size, window.scale_factor()))?;
             }
 
             WindowEvent::CursorMoved { position, .. } => {

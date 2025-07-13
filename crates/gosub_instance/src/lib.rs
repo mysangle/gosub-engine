@@ -33,6 +33,7 @@ pub struct EngineInstance<C: ModuleConfiguration> {
     #[allow(unused)]
     fetcher: Arc<Fetcher>,
     size: SizeU32,
+    scale_factor: f64,
 }
 
 impl<C: ModuleConfiguration> EngineInstance<C> {
@@ -77,6 +78,7 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
             handles,
             fetcher,
             size: SizeU32::new(0, 0),
+            scale_factor: 1.,
         })
     }
 
@@ -120,9 +122,10 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
     /// Handles a message sent to the instance
     async fn handle_message(&mut self, message: InstanceMessage) -> Result<()> {
         match message {
-            InstanceMessage::Redraw(size) => {
+            InstanceMessage::Redraw(size, scale_factor) => {
                 self.size = size;
-                let scene = self.data.draw(size, &self.el);
+                self.scale_factor = scale_factor;
+                let scene = self.data.draw(size, scale_factor, &self.el);
 
                 self.handles.chrome.draw_scene(scene, size, self.id);
             }
@@ -211,7 +214,7 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
     }
 
     fn redraw(&mut self) {
-        let scene = self.data.draw(self.size, &self.el);
+        let scene = self.data.draw(self.size, self.scale_factor, &self.el);
 
         self.handles.chrome.draw_scene(scene, self.size, self.id);
     }
@@ -223,7 +226,7 @@ pub struct InstanceHandle {
 
 pub enum InstanceMessage {
     /// Redraw the instance with the given size
-    Redraw(SizeU32),
+    Redraw(SizeU32, f64),
 
     /// Navigate to the given URL
     Navigate(Url),

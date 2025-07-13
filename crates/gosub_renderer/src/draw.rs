@@ -81,7 +81,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
 {
     type ImgCache = ImageCache<C::RenderBackend>;
 
-    fn draw(&mut self, size: SizeU32, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene {
+    fn draw(&mut self, size: SizeU32, scale_factor: f64, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene {
         if self.tree_scene.is_none() || self.size != Some(size) || !self.dirty {
             self.size = Some(size);
 
@@ -107,7 +107,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
                 el,
             };
 
-            drawer.render(size);
+            drawer.render(size, scale_factor);
 
             self.tree_scene = Some(scene);
 
@@ -361,9 +361,9 @@ impl<
         EL: EventLoopHandle<C>,
     > Drawer<'_, '_, C, EL>
 {
-    pub(crate) fn render(&mut self, size: SizeU32) {
+    pub(crate) fn render(&mut self, size: SizeU32, scale_factor: f64) {
         let root = self.drawer.tree.root();
-        if let Err(e) = self.drawer.layouter.layout(&mut self.drawer.tree, root, size) {
+        if let Err(e) = self.drawer.layouter.layout(&mut self.drawer.tree, root, size, scale_factor) {
             eprintln!("Failed to compute layout: {:?}", e);
             return;
         }
