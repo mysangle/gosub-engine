@@ -83,6 +83,8 @@ pub trait Layouter<C: HasLayouter + HasFontManager>: Sized + Clone + Send + 'sta
         root: <C::LayoutTree as LayoutTree<C>>::NodeId,
         // Dimensions of the viewport that we layout in
         space: SizeU32,
+        // scale factor
+        scale_factor: f64,
     ) -> Result<()>;
 }
 

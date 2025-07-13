@@ -39,7 +39,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
                                                     // layout_input.sizing_mode = SizingMode::ContentSize;
 
     // If there are no children, the node is hidden
-    let Some(children) = tree.0.children(node_id) else {
+    let Some(children) = tree.tree.children(node_id) else {
         return LayoutOutput::HIDDEN;
     };
 
@@ -62,7 +62,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
         let child_node_id = NodeId::from((*child).into());
 
         // If the child is not a node, we skip it
-        let Some(node) = tree.0.get_node_mut(*child) else {
+        let Some(node) = tree.tree.get_node_mut(*child) else {
             continue;
         };
         node.clear_text_layout();
@@ -114,8 +114,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             let color = node.get_property("color").and_then(|s| s.parse_color());
 
             // Generate decoration styles
-            if let Some(actual_parent) = tree.0.parent_id(node_id) {
-                if let Some(node) = tree.0.get_node_mut(actual_parent) {
+            if let Some(actual_parent) = tree.tree.parent_id(node_id) {
+                if let Some(node) = tree.tree.get_node_mut(actual_parent) {
                     let decoration_line = node.get_property("text-decoration-line");
 
                     if let Some(decoration_line) = decoration_line {
@@ -199,7 +199,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
             tree.update_style(*child);
 
-            let size = if let Some(cache) = tree.0.get_cache(*child) {
+            let size = if let Some(cache) = tree.tree.get_cache(*child) {
                 if cache.display == Display::Inline {
                     //TODO: handle margins here
                     out.content_size
@@ -235,7 +235,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
     let mut font_context = FONT_CX.lock().unwrap();
 
-    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, 1.0);
+    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, tree.scale_factor as f32);
     let mut align = parley::Alignment::default();
 
     // The first text node is the default style for the text. This is why this is treated separately.
@@ -504,7 +504,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
                     ids.push(node_id);
 
-                    let Some(node) = tree.0.get_node_mut(node_id) else {
+                    let Some(node) = tree.tree.get_node_mut(node_id) else {
                         continue;
                     };
 
@@ -540,7 +540,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     }
 
     for id in ids {
-        let Some(node) = tree.0.get_node_mut(id) else { continue };
+        let Some(node) = tree.tree.get_node_mut(id) else { continue };
 
         let Some(layouts) = node.get_text_layouts_mut() else {
             continue;

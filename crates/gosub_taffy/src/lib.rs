@@ -144,6 +144,7 @@ impl<B: HasLayouter<Layouter = TaffyLayouter> + HasFontManager> Layouter<B> for 
         tree: &mut B::LayoutTree,
         root: <B::LayoutTree as LayoutTree<B>>::NodeId,
         space: SizeU32,
+        scale_factor: f64,
     ) -> Result<()> {
         let size = taffy::Size {
             width: AvailableSpace::Definite(space.width as f32),
@@ -152,7 +153,7 @@ impl<B: HasLayouter<Layouter = TaffyLayouter> + HasFontManager> Layouter<B> for 
 
         // We need to convert our tree into a LayoutDocument. This document can be used by Taffy to layout the tree
         // throughout the LayoutPartialTree trait that our LayoutDocument implements.
-        let mut tree: LayoutDocument<B> = LayoutDocument(tree);
+        let mut tree: LayoutDocument<B> = LayoutDocument::new(tree, scale_factor);
 
         // Precompute the styles for all nodes in the layout tree. This will convert all the CSS properties we need
         // for layouting into Taffy properties that are stored in a cache.
@@ -173,7 +174,7 @@ impl TaffyLayouter {
         // Convert our CSS properties into Taffy properties and store them in a cache.
         tree.update_style(root);
 
-        let Some(children) = tree.0.children(root) else {
+        let Some(children) = tree.tree.children(root) else {
             return;
         };
 
@@ -184,8 +185,10 @@ impl TaffyLayouter {
     }
 }
 
-#[repr(transparent)]
-pub struct LayoutDocument<'a, C: HasLayouter>(&'a mut C::LayoutTree);
+pub struct LayoutDocument<'a, C: HasLayouter>{
+    tree: &'a mut C::LayoutTree,
+    scale_factor: f64,
+}
 
 impl<C: HasLayouter<Layouter = TaffyLayouter>> TraversePartialTree for LayoutDocument<'_, C> {
     type ChildIter<'a>
@@ -196,10 +199,10 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> TraversePartialTree for LayoutDoc
     fn child_ids(&self, parent: TaffyId) -> Self::ChildIter<'_> {
         let parent = <C::LayoutTree as LayoutTree<C>>::NodeId::from(parent.into());
 
-        if let Some(children) = self.0.children(parent) {
+        if let Some(children) = self.tree.children(parent) {
             children
                 .iter()
-                .filter(|id| self.0.contains(id)) //FIXME: This is a hack, we should not have to filter out non-existing nodes
+                .filter(|id| self.tree.contains(id)) //FIXME: This is a hack, we should not have to filter out non-existing nodes
                 .map(|id| TaffyId::from(Into::into(*id)))
                 .collect::<Vec<_>>()
                 .into_iter()
@@ -211,16 +214,16 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> TraversePartialTree for LayoutDoc
     fn child_count(&self, parent: TaffyId) -> usize {
         let parent = <C::LayoutTree as LayoutTree<C>>::NodeId::from(parent.into());
 
-        self.0.child_count(parent)
+        self.tree.child_count(parent)
     }
 
     fn get_child_id(&self, parent: TaffyId, index: usize) -> TaffyId {
         let parent = <C::LayoutTree as LayoutTree<C>>::NodeId::from(parent.into());
 
-        if let Some(node) = self.0.children(parent) {
+        if let Some(node) = self.tree.children(parent) {
             TaffyId::from(
                 node.into_iter()
-                    .filter(|id| self.0.contains(id)) //FIXME: This is a hack, we should not have to filter out non-existing nodes
+                    .filter(|id| self.tree.contains(id)) //FIXME: This is a hack, we should not have to filter out non-existing nodes
                     .nth(index)
                     .map(Into::into)
                     .unwrap_or_default(),
@@ -231,16 +234,23 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> TraversePartialTree for LayoutDoc
     }
 }
 
-impl<C: HasLayouter<Layouter = TaffyLayouter>> LayoutDocument<'_, C> {
+impl<'a, C: HasLayouter<Layouter = TaffyLayouter>> LayoutDocument<'a, C> {
+    fn new(tree:  &'a mut C::LayoutTree, scale_factor: f64) -> Self {
+        Self {
+            tree,
+            scale_factor,
+        }
+    }
+    
     /// Get the CSS properties for the given node, and store it inside the cache
     fn update_style(&mut self, node_id: <C::LayoutTree as LayoutTree<C>>::NodeId) {
-        let Some(node) = self.0.get_node_mut(node_id) else {
+        let Some(node) = self.tree.get_node_mut(node_id) else {
             return;
         };
 
         let (style, display) = get_style_from_node(node);
 
-        if let Some(cache) = self.0.get_cache_mut(node_id) {
+        if let Some(cache) = self.tree.get_cache_mut(node_id) {
             cache.style = style;
             cache.display = display;
         }
@@ -248,13 +258,13 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> LayoutDocument<'_, C> {
 
     /// Get the taffy style properties for a given node. If the style is dirty, we will update the style first.
     fn get_taffy_style(&mut self, node_id: <C::LayoutTree as LayoutTree<C>>::NodeId) -> &Style {
-        let dirty_style = self.0.style_dirty(node_id);
+        let dirty_style = self.tree.style_dirty(node_id);
         if dirty_style {
             self.update_style(node_id);
         }
 
         let cache = self
-            .0
+            .tree
             .get_cache(node_id)
             .expect("Cache not found, why again does taffy don't use optionals?");
 
@@ -263,7 +273,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> LayoutDocument<'_, C> {
 
     /// Force the taffy style from the cache. Do not care about dirty styles
     fn get_taffy_style_no_update(&self, node_id: <C::LayoutTree as LayoutTree<C>>::NodeId) -> &Style {
-        if let Some(cache) = self.0.get_cache(node_id) {
+        if let Some(cache) = self.tree.get_cache(node_id) {
             return &cache.style;
         }
         panic!(
@@ -283,7 +293,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> CacheTree for LayoutDocument<'_, 
     ) -> Option<LayoutOutput> {
         let node_id = <C::LayoutTree as LayoutTree<C>>::NodeId::from(node_id.into());
         let cache = &self
-            .0
+            .tree
             .get_cache(node_id)
             .expect("Cache not found, why again does taffy don't use optionals?")
             .taffy;
@@ -301,7 +311,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> CacheTree for LayoutDocument<'_, 
     ) {
         let node_id = <C::LayoutTree as LayoutTree<C>>::NodeId::from(node_id.into());
         let cache = &mut self
-            .0
+            .tree
             .get_cache_mut(node_id)
             .expect("Cache not found, why again does taffy don't use optionals?")
             .taffy;
@@ -312,7 +322,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> CacheTree for LayoutDocument<'_, 
     fn cache_clear(&mut self, node_id: TaffyId) {
         let node_id = <C::LayoutTree as LayoutTree<C>>::NodeId::from(node_id.into());
         let cache = &mut self
-            .0
+            .tree
             .get_cache_mut(node_id)
             .expect("Cache not found, why again does taffy don't use optionals?")
             .taffy;
@@ -336,7 +346,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> LayoutPartialTree for LayoutDocum
 
         let node_id = <C::LayoutTree as LayoutTree<C>>::NodeId::from(node_id.into());
 
-        self.0.set_layout(node_id, layout);
+        self.tree.set_layout(node_id, layout);
     }
 
     fn compute_child_layout(&mut self, node_id: TaffyId, mut inputs: LayoutInput) -> LayoutOutput {
@@ -345,7 +355,7 @@ impl<C: HasLayouter<Layouter = TaffyLayouter>> LayoutPartialTree for LayoutDocum
         compute_cached_layout(self, node_id, inputs, |tree, node_id_taffy, inputs| {
             let node_id = <C::LayoutTree as LayoutTree<C>>::NodeId::from(node_id_taffy.into());
 
-            if let Some(node) = tree.0.get_node_mut(node_id) {
+            if let Some(node) = tree.tree.get_node_mut(node_id) {
                 // If we are an inline parent, we should compute the inline layout
                 if node.is_anon_inline_parent() {
                     println!("Node: {:?} is inline parent", node_id);

@@ -13,7 +13,7 @@ use url::Url;
 pub trait TreeDrawer<C: HasDrawComponents> {
     type ImgCache: ImgCache<C::RenderBackend>;
 
-    fn draw(&mut self, size: SizeU32, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene;
+    fn draw(&mut self, size: SizeU32, scale_factor: f64, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene;
     fn mouse_move(&mut self, x: FP, y: FP) -> bool;
 
     fn scroll(&mut self, point: Point);
