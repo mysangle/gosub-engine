@@ -80,7 +80,9 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             }
 
             // We add a space between the text nodes, so that the text is not glued together
-            str_buf.push(' ');
+            if !str_buf.is_empty() {
+                str_buf.push(' ');
+            }
             str_buf.push_str(text);
 
             // @TODO: default font family can be different per platform
