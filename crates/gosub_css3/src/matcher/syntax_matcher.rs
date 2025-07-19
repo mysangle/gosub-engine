@@ -15,9 +15,9 @@ pub struct MatchResult<'a> {
 }
 
 #[allow(dead_code)]
-const LENGTH_UNITS: [&str; 31] = [
+const LENGTH_UNITS: [&str; 32] = [
     "cap", "ch", "em", "ex", "ic", "lh", "rcap", "rch", "rem", "rex", "ric", "rlh", "vh", "vw", "vmax", "vmin", "vb",
-    "vi", "cqw", "cqh", "cqi", "cqb", "cqmin", "cqmax", "px", "cm", "mm", "Q", "in", "pc", "pt",
+    "vi", "cqw", "cqh", "cqi", "cqb", "cqmin", "cqmax", "px", "cm", "mm", "Q", "in", "pc", "pt", "__qem",
 ];
 
 /// A CSS Syntax Tree is a tree sof CSS syntax components that can be used to match against CSS values.
