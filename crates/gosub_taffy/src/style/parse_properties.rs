@@ -145,11 +145,58 @@ pub fn parse_aspect_ratio<C: HasLayouter>(node: &mut impl LayoutNode<C>) -> Opti
 }
 
 pub fn parse_margin<C: HasLayouter>(node: &mut impl LayoutNode<C>) -> Rect<LengthPercentageAuto> {
+    let writing_mode = node.get_property("writing-mode").and_then(|v| v.as_string()).unwrap_or("horizontal-tb").to_string();
+
+    let mut top = parse_len_auto(node, "margin-top");
+    let mut right = parse_len_auto(node, "margin-right");
+    let mut bottom = parse_len_auto(node, "margin-bottom");
+    let mut left = parse_len_auto(node, "margin-left");
+
+    if let Some(_margin_block_start) = node.get_property("margin-block-start") {
+        let val = parse_len_auto(node, "margin-block-start");
+        match writing_mode.as_str() {
+            "horizontal-tb" => top = val,
+            "vertical-rl" => right = val,
+            "vertical-lr" => left = val,
+            _ => {}
+        }
+    }
+
+    if let Some(_margin_block_end) = node.get_property("margin-block-end") {
+        let val = parse_len_auto(node, "margin_block_end");
+        match writing_mode.as_str() {
+            "horizontal-tb" => bottom = val,
+            "vertical-rl" => left = val,
+            "vertical-lr" => right = val,
+            _ => {}
+        }
+    }
+
+    if let Some(_margin_inline_start) = node.get_property("margin-inline-start") {
+        let val = parse_len_auto(node, "margin_inline_start");
+        match writing_mode.as_str() {
+            "horizontal-tb" => left = val,
+            "vertical-rl" => top = val,
+            "vertical-lr" => top = val,
+            _ => {}
+        }
+    }
+
+    if let Some(_margin_inline_end) = node.get_property("margin-inline-end") {
+        let val = parse_len_auto(node, "margin_inline_end");
+        match writing_mode.as_str() {
+            "horizontal-tb" => right = val,
+            "vertical-rl" => bottom = val,
+            "vertical-lr" => bottom = val,
+            _ => {}
+        }
+    }
+
     Rect {
-        top: parse_len_auto(node, "margin-top"),
-        right: parse_len_auto(node, "margin-right"),
-        bottom: parse_len_auto(node, "margin-bottom"),
-        left: parse_len_auto(node, "margin-left"),
+        top,
+        right,
+        bottom,
+        left,
     }
 }
 
