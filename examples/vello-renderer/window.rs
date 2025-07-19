@@ -174,7 +174,7 @@ fn create_window(event_loop: &ActiveEventLoop) -> Result<Arc<WinitWindow>> {
     let attributes = WinitWindow::default_attributes()
         .with_title("Gosub Browser")
         .with_window_icon(Some(ICON.with(|icon| icon.deref().clone())))
-        .with_inner_size(LogicalSize::new(1920, 1080));
+        .with_inner_size(LogicalSize::new(800, 600));
 
     event_loop
         .create_window(attributes)
