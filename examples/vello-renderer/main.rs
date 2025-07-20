@@ -123,12 +123,13 @@ fn main() -> Result<()> {
         .get_matches();
 
     let url: String = matches.get_one::<String>("url").expect("url").to_string();
+    let debug = matches.get_one::<bool>("debug").expect("debug");
 
     // let drawer: TreeDrawer<Tree, TaffyLayouter> = TreeDrawer::new(todo!(), TaffyLayouter, "".to_string().into(), debug);
 
     // let mut rt = load_html_rendertree(&url)?;
     //
-    let mut application: Application<Config> = Application::new(VelloBackend::new(), TaffyLayouter);
+    let mut application: Application<Config> = Application::new(VelloBackend::new(), TaffyLayouter, *debug);
 
     application.initial_tab(Url::parse(&url)?, WindowOptions::default());
 

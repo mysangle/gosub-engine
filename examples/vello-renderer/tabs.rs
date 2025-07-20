@@ -46,18 +46,19 @@ impl Tabs {
         url: Url,
         layouter: C::Layouter,
         handles: Handles<C>,
+        debug: bool,
     ) -> Result<Self> {
         let mut tabs = SlotMap::new();
 
-        let id = tabs.try_insert_with_key(|key| EngineInstance::new_on_thread(url, layouter, kti(key), handles))?;
+        let id = tabs.try_insert_with_key(|key| EngineInstance::new_on_thread(url, layouter, kti(key), handles, debug))?;
 
         Ok(Self { tabs, active: kti(id) })
     }
 
-    pub fn open<C: ModuleConfiguration>(&mut self, url: Url, layouter: C::Layouter, handles: Handles<C>) -> Result<()> {
+    pub fn open<C: ModuleConfiguration>(&mut self, url: Url, layouter: C::Layouter, handles: Handles<C>, debug: bool) -> Result<()> {
         let id = self
             .tabs
-            .try_insert_with_key(|key| EngineInstance::new_on_thread(url.clone(), layouter, kti(key), handles))?;
+            .try_insert_with_key(|key| EngineInstance::new_on_thread(url.clone(), layouter, kti(key), handles, debug))?;
 
         self.active = kti(id);
 
