@@ -34,6 +34,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     node_id: <C::LayoutTree as LayoutTree<C>>::NodeId,
     mut layout_input: LayoutInput,
 ) -> LayoutOutput {
+    let scale_factor = tree.scale_factor as f32;
     layout_input.known_dimensions = Size::NONE;
     layout_input.run_mode = RunMode::PerformLayout; //TODO: We should respect the run mode
                                                     // layout_input.sizing_mode = SizingMode::ContentSize;
@@ -98,8 +99,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             let font_style = parse_font_style(node);
             let var_axes = parse_font_axes(node);
             let line_height = node.get_property("line-height").and_then(|s| s.as_number());
-            let word_spacing = node.get_property("word-spacing").map(|s| s.unit_to_px());
-            let letter_spacing = node.get_property("letter-spacing").map(|s| s.unit_to_px());
+            let word_spacing = node.get_property("word-spacing").map(|s| s.unit_to_px() * scale_factor);
+            let letter_spacing = node.get_property("letter-spacing").map(|s| s.unit_to_px() * scale_factor);
 
             let font_info = <C::FontManager as FontManager>::FontInfo::new(&font_family)
                 .unwrap()
@@ -155,7 +156,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
                     decoration_width = node
                         .get_property("text-decoration-thickness")
-                        .map(|s| s.unit_to_px())
+                        .map(|s| s.unit_to_px() * scale_factor)
                         .unwrap_or(1.0);
 
                     if let Some(c) = node
@@ -166,7 +167,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
                         decoration_color = c;
                     }
 
-                    if let Some(o) = node.get_property("text-underline-offset").map(|s| s.unit_to_px()) {
+                    if let Some(o) = node.get_property("text-underline-offset").map(|s| s.unit_to_px() * scale_factor) {
                         underline_offset = o;
                     }
                 }
@@ -237,7 +238,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
     let mut font_context = FONT_CX.lock().unwrap();
 
-    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, tree.scale_factor as f32);
+    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, scale_factor);
     let mut align = parley::Alignment::default();
 
     // The first text node is the default style for the text. This is why this is treated separately.
@@ -381,7 +382,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     drop(font_context);
 
     let max_width = match layout_input.available_space.width {
-        AvailableSpace::Definite(width) => Some(width),
+        AvailableSpace::Definite(width) => Some(width * scale_factor),
         AvailableSpace::MinContent => Some(0.0),
         AvailableSpace::MaxContent => None,
     };
@@ -397,8 +398,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     );
 
     let content_size = Size {
-        width: layout.width().ceil(),
-        height: layout.height().ceil(),
+        width: layout.width().ceil() / scale_factor,
+        height: layout.height().ceil() / scale_factor,
     };
 
     let mut current_node_idx = 0;
@@ -567,6 +568,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             layout.offset.y -= location.y;
         }
 
+        size = Size::new(size.width / scale_factor, size.height / scale_factor).unwrap_or(size);
         tree.set_unrounded_layout(
             NodeId::new(current_node_id.into()),
             &Layout {
@@ -591,6 +593,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     if let AvailableSpace::Definite(height) = layout_input.available_space.height {
         size.height = content_size.height.min(height);
     }
+    log::info!("inline layout: {:?}", content_size);
 
     LayoutOutput {
         size: content_size,
