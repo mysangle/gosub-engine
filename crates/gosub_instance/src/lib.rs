@@ -42,10 +42,11 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
         layouter: C::Layouter,
         id: InstanceId,
         handles: Handles<C>,
+        debug: bool,
     ) -> Result<(Self, InstanceHandle)> {
         let (tx, rx) = tokio::sync::mpsc::channel(128);
 
-        let instance = EngineInstance::with_chan(url.clone(), layouter, rx, id, handles).await?;
+        let instance = EngineInstance::with_chan(url.clone(), layouter, rx, id, handles, debug).await?;
 
         let handle = InstanceHandle { tx };
 
@@ -58,9 +59,10 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
         rx: Receiver<InstanceMessage>,
         id: InstanceId,
         handles: Handles<C>,
+        debug: bool,
     ) -> Result<Self> {
         let fetcher = Arc::new(Fetcher::new(url.clone()));
-        let (data, _handle) = C::TreeDrawer::with_fetcher(url.clone(), fetcher.clone(), layouter, false).await?;
+        let (data, _handle) = C::TreeDrawer::with_fetcher(url.clone(), fetcher.clone(), layouter, debug).await?;
 
         let (itx, irx) = tokio::sync::mpsc::channel(128);
 
@@ -83,7 +85,7 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
     }
 
     /// Spawns a new `EngineInstance` on a new thread, returning the `InstanceHandle` to communicate with it
-    pub fn new_on_thread(url: Url, layouter: C::Layouter, id: InstanceId, handles: Handles<C>) -> Result<InstanceHandle>
+    pub fn new_on_thread(url: Url, layouter: C::Layouter, id: InstanceId, handles: Handles<C>, debug: bool) -> Result<InstanceHandle>
     where
         C::Layouter: Send + 'static,
     {
@@ -92,7 +94,7 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
         std::thread::spawn(move || {
             let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
-            let mut instance = match rt.block_on(Self::with_chan(url, layouter, rx, id, handles)) {
+            let mut instance = match rt.block_on(Self::with_chan(url, layouter, rx, id, handles, debug)) {
                 Ok(instance) => instance,
                 Err(e) => {
                     eprintln!("Error: {:?}", e);

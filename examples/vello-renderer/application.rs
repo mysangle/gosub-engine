@@ -44,6 +44,7 @@ pub struct Application<'a, C: ModuleConfiguration> {
     layouter: C::Layouter,
     active_state: Option<ActiveState<C>>,
     event_loop: Option<EventLoop<CustomEventInternal<C>>>,
+    debug: bool,
 }
 
 pub struct ActiveState<C: ModuleConfiguration> {
@@ -120,7 +121,7 @@ impl<C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Application
 
                 handles.chrome.window = window.id();
 
-                if let Err(e) = window.tabs.open(url, self.layouter.clone(), handles) {
+                if let Err(e) = window.tabs.open(url, self.layouter.clone(), handles, self.debug) {
                     error!("Error opening tab: {e:?}");
                     return;
                 }
@@ -209,7 +210,7 @@ impl<C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Application
 }
 
 impl<'a, C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Application<'a, C> {
-    pub fn new(backend: C::RenderBackend, layouter: C::Layouter) -> Self {
+    pub fn new(backend: C::RenderBackend, layouter: C::Layouter, debug: bool) -> Self {
         Self {
             windows: HashMap::new(),
             backend,
@@ -217,6 +218,7 @@ impl<'a, C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Applica
             active_state: None,
             event_loop: None,
             open_windows: Vec::new(),
+            debug,
         }
     }
 
