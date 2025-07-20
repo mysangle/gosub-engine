@@ -11,7 +11,7 @@ use gosub_interface::draw::TreeDrawer;
 use gosub_interface::eventloop::EventLoopHandle;
 use gosub_interface::layout::{Layout, LayoutTree, Layouter};
 use gosub_interface::render_backend::{
-    Border, BorderSide, BorderStyle, Brush, Color, ImageBuffer, ImgCache, NodeDesc, Rect, RenderBackend, RenderBorder,
+    Border, BorderSide, BorderStyle, Brush, Color, ImageBuffer, ImgCache, NodeDesc, Rect as TRect, RenderBackend, RenderBorder,
     RenderRect, RenderText, Scene as TScene, Text, Transform,
 };
 use gosub_interface::render_tree;
@@ -20,7 +20,7 @@ use gosub_interface::svg::SvgRenderer;
 use gosub_net::http::fetcher::Fetcher;
 use gosub_rendering::position::PositionTree;
 use gosub_rendering::render_tree::RenderTree;
-use gosub_shared::geo::{Size, SizeU32, FP};
+use gosub_shared::geo::{Rect, Size, SizeU32, FP};
 use gosub_shared::node::NodeId;
 use gosub_shared::types::Result;
 use log::{error, info};
@@ -54,6 +54,7 @@ pub struct TreeDrawerImpl<C: HasDrawComponents> {
     pub(crate) selected_element: Option<NodeId>,
     pub(crate) scene_transform: Option<<C::RenderBackend as RenderBackend>::Transform>,
     pub(crate) img_cache: ImageCache<C::RenderBackend>,
+    pub(crate) scale_factor: f64,
 }
 
 impl<C: HasDrawComponents> TreeDrawerImpl<C> {
@@ -72,6 +73,7 @@ impl<C: HasDrawComponents> TreeDrawerImpl<C> {
             selected_element: None,
             scene_transform: None,
             img_cache: ImageCache::new(),
+            scale_factor: 1.,
         }
     }
 }
@@ -82,6 +84,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
     type ImgCache = ImageCache<C::RenderBackend>;
 
     fn draw(&mut self, size: SizeU32, scale_factor: f64, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene {
+        self.scale_factor = scale_factor;
         if self.tree_scene.is_none() || self.size != Some(size) || !self.dirty {
             self.size = Some(size);
 
@@ -114,7 +117,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
             self.size = Some(size);
         }
 
-        let bg = Rect::new(0.0, 0.0, size.width as FP, size.height as FP);
+        let bg = TRect::new(0.0, 0.0, size.width as FP, size.height as FP);
 
         let rect = RenderRect {
             rect: bg,
@@ -137,7 +140,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
 
         if self.dirty {
             if let Some(id) = self.selected_element {
-                self.debug_annotate(id);
+                self.debug_annotate(id, scale_factor as f32);
             }
         }
 
@@ -168,14 +171,18 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
     }
 
     fn mouse_move(&mut self, x: FP, y: FP) -> bool {
+        let scale_factor = self.scale_factor as f32;
+        
         let x = x - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).tx();
         let y = y - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).ty();
+        let x = x / scale_factor;
+        let y = y / scale_factor;
 
         if let Some(e) = self.position.find(x, y) {
             if self.last_hover != Some(e) {
                 self.last_hover = Some(e);
                 if self.debug {
-                    return self.debug_annotate(e);
+                    return self.debug_annotate(e, scale_factor);
                 }
             }
             return false;
@@ -395,7 +402,7 @@ impl<
                     });
                 
                 if let Some(bg_color) = background_color {
-                    let rect = Rect::new(0. as FP, 0. as FP, size.width as FP, size.height as FP);
+                    let rect = TRect::new(0. as FP, 0. as FP, size.width as FP, size.height as FP);
                     let rect = RenderRect {
                         rect,
                         transform: None,
@@ -408,8 +415,8 @@ impl<
                 }
             }
         }
-        
-        self.render_node_with_children(self.drawer.tree.root(), Point::ZERO);
+
+        self.render_node_with_children(self.drawer.tree.root(), Point::ZERO, scale_factor);
     }
     
     // inspect only the current node and its direct children in the tree.
@@ -428,8 +435,8 @@ impl<
         })
     }
 
-    fn render_node_with_children(&mut self, id: NodeId, mut pos: Point) {
-        let err = self.render_node(id, &mut pos);
+    fn render_node_with_children(&mut self, id: NodeId, mut pos: Point, scale_factor: f64) {
+        let err = self.render_node(id, &mut pos, scale_factor);
         if let Err(e) = err {
             eprintln!("Error rendering node: {}", e);
         }
@@ -440,21 +447,22 @@ impl<
         };
 
         for child in children {
-            self.render_node_with_children(child, pos);
+            self.render_node_with_children(child, pos, scale_factor);
         }
     }
 
-    fn render_node(&mut self, id: NodeId, pos: &mut Point) -> Result<()> {
+    fn render_node(&mut self, id: NodeId, pos: &mut Point, scale_factor: f64) -> Result<()> {
         let node = self.drawer.tree.get_node(id).ok_or(anyhow!("Node {id} not found"))?;
 
         let p = node.layout().rel_pos();
-        pos.x += p.x as FP;
-        pos.y += p.y as FP;
+        pos.x += (p.x * scale_factor as f32) as FP;
+        pos.y += (p.y * scale_factor as f32) as FP;
 
         let (border_radius, new_size) = render_bg::<C>(
             node,
             self.scene,
             pos,
+            scale_factor,
             self.svg.clone(),
             self.drawer.fetcher.clone(),
             &mut self.drawer.img_cache,
@@ -496,7 +504,7 @@ impl<
             }
         }
 
-        render_text::<C>(node, pos, self.scene);
+        render_text::<C>(node, pos, self.scene,scale_factor);
 
         if let Some(new) = size_change {
             let node = self
@@ -518,6 +526,7 @@ fn render_text<C: HasDrawComponents>(
     node: &<C::RenderTree as render_tree::RenderTree<C>>::Node,
     pos: &Point,
     scene: &mut <C::RenderBackend as RenderBackend>::Scene,
+    scale_factor: f64,
 ) {
     let color = node
         .props()
@@ -530,14 +539,15 @@ fn render_text<C: HasDrawComponents>(
         let text = layout
             .iter()
             .map(|layout| {
-                let text: <C::RenderBackend as RenderBackend>::Text = Text::new(layout);
+                let text: <C::RenderBackend as RenderBackend>::Text = Text::new(layout, scale_factor);
                 text
             })
             .collect::<Vec<_>>();
 
         let size = node.layout().size();
+        let size = Size::new(size.width * scale_factor as f32, size.height * scale_factor as f32);
 
-        let rect = Rect::new(pos.x as FP, pos.y as FP, size.width as FP, size.height as FP);
+        let rect = TRect::new(pos.x as FP, pos.y as FP, size.width as FP, size.height as FP);
 
         let render_text = RenderText {
             text,
@@ -562,7 +572,7 @@ fn render_image<B: RenderBackend>(
     let width = size.width as FP;
     let height = size.height as FP;
 
-    let rect = Rect::new(pos.x, pos.y, pos.x + width, pos.y + height);
+    let rect = TRect::new(pos.x, pos.y, pos.x + width, pos.y + height);
 
     let img_size = img.size_tuple();
 
@@ -700,6 +710,7 @@ fn render_bg<C: HasDrawComponents>(
     node: &<C::RenderTree as render_tree::RenderTree<C>>::Node,
     scene: &mut <C::RenderBackend as RenderBackend>::Scene,
     pos: &Point,
+    scale_factor: f64,
     svg: Arc<Mutex<<C::RenderBackend as RenderBackend>::SVGRenderer>>,
     fetcher: Arc<Fetcher>,
     img_cache: &mut ImageCache<C::RenderBackend>,
@@ -747,7 +758,7 @@ fn render_bg<C: HasDrawComponents>(
     if let Some(bg_color) = bg_color {
         let size = node.layout().size();
 
-        let rect = Rect::new(pos.x as FP, pos.y as FP, size.width as FP, size.height as FP);
+        let rect = TRect::new(pos.x as FP, pos.y as FP, size.width * scale_factor as FP, size.height * scale_factor as FP);
 
         let rect = RenderRect {
             rect,
@@ -762,7 +773,7 @@ fn render_bg<C: HasDrawComponents>(
     } else if let Some(border) = border {
         let size = node.layout().size();
 
-        let rect = Rect::new(pos.x as FP, pos.y as FP, size.width as FP, size.height as FP);
+        let rect = TRect::new(pos.x as FP, pos.y as FP, size.width as FP, size.height as FP);
 
         let rect = RenderRect {
             rect,
@@ -894,7 +905,7 @@ impl Side {
 }
 
 impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>>> TreeDrawerImpl<C> {
-    fn debug_annotate(&mut self, e: NodeId) -> bool {
+    fn debug_annotate(&mut self, e: NodeId, scale_factor: f32) -> bool {
         let Some(node) = self.tree.get_node(e) else {
             return false;
         };
@@ -905,9 +916,12 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
             return false;
         };
         let size = layout.size();
+        let size = Size::new(size.width * scale_factor, size.height * scale_factor);
 
         let padding = layout.padding();
+        let padding = Rect::new(padding.x1 * scale_factor, padding.x2 * scale_factor, padding.y1 * scale_factor, padding.y2 * scale_factor);
         let border_size = layout.border();
+        let border_size = Rect::new(border_size.x1 * scale_factor, border_size.x2 * scale_factor, border_size.y1 * scale_factor, border_size.y2 * scale_factor);
         
         let Some((x, y)) = self.position.position(e) else {
             return false;
@@ -915,8 +929,11 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         
         println!("Annotating: {:?}", node);
         println!("At: {:?} size: {size:?}", (x, y));
+        
+        let x = x * scale_factor;
+        let y = y * scale_factor;
 
-        let content_rect = Rect::new(x, y, size.width as FP, size.height as FP);
+        let content_rect = TRect::new(x, y, size.width as FP, size.height as FP);
 
         let padding_brush = <C::RenderBackend as RenderBackend>::Brush::color(
             <C::RenderBackend as RenderBackend>::Color::tuple3(DEBUG_PADDING_COLOR).alpha(127),
@@ -988,7 +1005,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
 
         let border_border = RenderBorder::new(border_border);
 
-        let border_rect = Rect::new(
+        let border_rect = TRect::new(
             x as FP - border_size.x2 as FP - padding.x2 as FP,
             y as FP - border_size.y1 as FP - padding.y1 as FP,
             (size.width + padding.x2 + padding.x1) as FP,

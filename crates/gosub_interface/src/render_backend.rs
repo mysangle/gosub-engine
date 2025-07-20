@@ -81,7 +81,7 @@ pub trait Scene<B: RenderBackend>: Clone + Debug + Send {
 }
 
 pub trait Text: Clone + Debug + Sized {
-    fn new(layout: &impl TextLayout) -> Self;
+    fn new(layout: &impl TextLayout, scale_factor: f64) -> Self;
 }
 
 #[derive(Clone, Debug)]

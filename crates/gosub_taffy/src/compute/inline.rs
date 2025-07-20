@@ -99,8 +99,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             let font_style = parse_font_style(node);
             let var_axes = parse_font_axes(node);
             let line_height = node.get_property("line-height").and_then(|s| s.as_number());
-            let word_spacing = node.get_property("word-spacing").map(|s| s.unit_to_px() * scale_factor);
-            let letter_spacing = node.get_property("letter-spacing").map(|s| s.unit_to_px() * scale_factor);
+            let word_spacing = node.get_property("word-spacing").map(|s| s.unit_to_px());
+            let letter_spacing = node.get_property("letter-spacing").map(|s| s.unit_to_px());
 
             let font_info = <C::FontManager as FontManager>::FontInfo::new(&font_family)
                 .unwrap()
@@ -156,7 +156,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
                     decoration_width = node
                         .get_property("text-decoration-thickness")
-                        .map(|s| s.unit_to_px() * scale_factor)
+                        .map(|s| s.unit_to_px())
                         .unwrap_or(1.0);
 
                     if let Some(c) = node
@@ -167,7 +167,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
                         decoration_color = c;
                     }
 
-                    if let Some(o) = node.get_property("text-underline-offset").map(|s| s.unit_to_px() * scale_factor) {
+                    if let Some(o) = node.get_property("text-underline-offset").map(|s| s.unit_to_px()) {
                         underline_offset = o;
                     }
                 }
@@ -568,6 +568,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             layout.offset.y -= location.y;
         }
 
+        // reduce layout size to logical size
         size = Size::new(size.width / scale_factor, size.height / scale_factor).unwrap_or(size);
         tree.set_unrounded_layout(
             NodeId::new(current_node_id.into()),
@@ -593,7 +594,6 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     if let AvailableSpace::Definite(height) = layout_input.available_space.height {
         size.height = content_size.height.min(height);
     }
-    log::info!("inline layout: {:?}", content_size);
 
     LayoutOutput {
         size: content_size,
