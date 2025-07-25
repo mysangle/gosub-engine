@@ -369,8 +369,63 @@ impl<
         }
 
         self.drawer.position = PositionTree::<C>::from_tree(&self.drawer.tree);
-
+        
+        // check background-color of <html> tag.
+        if let Some(html_node_id) = self.find_node_id(root, "html") {
+            let html_node = self.drawer.tree.get_node(html_node_id);
+            if let Some(html_node) = html_node {
+                let background_color = html_node
+                    .props()
+                    .get("background-color")
+                    .and_then(|prop| prop.parse_color())
+                    .or_else(|| {
+                        // use <body> tag's if <html> tag doesn't include 'background-color'.
+                        self.drawer.tree.children(html_node_id).and_then(|children| {
+                            children.iter().find_map(|&child_id| {
+                                self.drawer.tree.get_node(child_id)
+                                    .filter(|node| node.name == "body")
+                                    .map(|node| {
+                                        node
+                                            .props()
+                                            .get("background-color")
+                                            .and_then(|prop| prop.parse_color())
+                                    })
+                            })
+                        }).flatten()
+                    });
+                
+                if let Some(bg_color) = background_color {
+                    let rect = Rect::new(0. as FP, 0. as FP, size.width as FP, size.height as FP);
+                    let rect = RenderRect {
+                        rect,
+                        transform: None,
+                        radius: None,
+                        brush: Brush::color(Color::rgba(bg_color.0 as u8, bg_color.1 as u8, bg_color.2 as u8, bg_color.3 as u8)),
+                        brush_transform: None,
+                        border: None,
+                    };
+                    self.scene.draw_rect(&rect);
+                }
+            }
+        }
+        
         self.render_node_with_children(self.drawer.tree.root(), Point::ZERO);
+    }
+    
+    // inspect only the current node and its direct children in the tree.
+    fn find_node_id(&self, id: NodeId, name: &str) -> Option<NodeId>{
+        if self.drawer.tree.get_node(id)
+                .map_or(false, |node| node.name == name) {
+            return Some(id);
+        }
+        
+        self.drawer.tree.children(id).and_then(|children| {
+            children.iter().find_map(|&child_id| {
+                self.drawer.tree.get_node(child_id)
+                    .filter(|node| node.name == name)
+                    .map(|node| node.id)
+            })
+        })
     }
 
     fn render_node_with_children(&mut self, id: NodeId, mut pos: Point) {
@@ -853,11 +908,11 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
 
         let padding = layout.padding();
         let border_size = layout.border();
-
+        
         let Some((x, y)) = self.position.position(e) else {
             return false;
         };
-
+        
         println!("Annotating: {:?}", node);
         println!("At: {:?} size: {size:?}", (x, y));
 
