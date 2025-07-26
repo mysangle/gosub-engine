@@ -53,10 +53,10 @@ impl Text {
                 let c = decoration.color;
 
                 let brush = Brush::Solid(Color::from_rgba8(
-                    (c.0 * 255.0) as u8,
-                    (c.1 * 255.0) as u8,
-                    (c.2 * 255.0) as u8,
-                    (c.3 * 255.0) as u8,
+                    c.0 as u8,
+                    c.1 as u8,
+                    c.2 as u8,
+                    c.3 as u8,
                 ));
 
                 let offset = decoration.x_offset as f64;
