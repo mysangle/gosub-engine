@@ -469,9 +469,9 @@ impl CssProperty {
     fn find_actual_value(&self) -> CssValue {
         // @TODO: stuff like clipping and such should occur as well
         match &self.used {
-            CssValue::Number(len) => CssValue::Number(len.round()),
-            CssValue::Percentage(perc) => CssValue::Percentage(perc.round()),
-            CssValue::Unit(value, unit) => CssValue::Unit(value.round(), unit.clone()),
+            CssValue::Number(len) => CssValue::Number(len.clone()),
+            CssValue::Percentage(perc) => CssValue::Percentage(perc.clone()),
+            CssValue::Unit(value, unit) => CssValue::Unit(value.clone(), unit.clone()),
             _ => self.used.clone(),
         }
     }

@@ -420,6 +420,7 @@ impl CssValue {
                 "px" => *val,
                 "em" => *val * 16.0,
                 "rem" => *val * 16.0,
+                "__qem" => *val * 16.0,
                 _ => *val,
             },
             CssValue::String(value) => {

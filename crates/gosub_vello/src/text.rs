@@ -88,7 +88,7 @@ impl Text {
 }
 
 impl TText for Text {
-    fn new(layout: &impl TextLayout) -> Self {
+    fn new(layout: &impl TextLayout, scale_factor: f64) -> Self {
         let glyphs = layout
             .glyphs()
             .iter()
@@ -101,12 +101,15 @@ impl TText for Text {
 
         // let coords = layout.coords().iter().map(|c| NormalizedCoord::from(*c)).collect();
 
+        let mut decoration = layout.decorations().clone();
+        decoration.underline_offset = decoration.underline_offset * scale_factor as f32;
+        decoration.x_offset = decoration.x_offset * scale_factor as f32;
         Self {
             glyphs,
             font_data: layout.font_data().clone(),
             fs: layout.font_size(),
             coords: layout.coords().to_vec(),
-            decoration: layout.decorations().clone(),
+            decoration: decoration,
             offset: layout.offset(),
         }
     }

@@ -146,9 +146,10 @@ impl<B: HasLayouter<Layouter = TaffyLayouter> + HasFontManager> Layouter<B> for 
         space: SizeU32,
         scale_factor: f64,
     ) -> Result<()> {
+        // use logical size when layouting
         let size = taffy::Size {
-            width: AvailableSpace::Definite(space.width as f32),
-            height: AvailableSpace::Definite(space.height as f32),
+            width: AvailableSpace::Definite(space.width as f32 / scale_factor as f32),
+            height: AvailableSpace::Definite(space.height as f32 / scale_factor as f32),
         };
 
         // We need to convert our tree into a LayoutDocument. This document can be used by Taffy to layout the tree

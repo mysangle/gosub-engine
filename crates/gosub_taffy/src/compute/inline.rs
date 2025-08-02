@@ -34,6 +34,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     node_id: <C::LayoutTree as LayoutTree<C>>::NodeId,
     mut layout_input: LayoutInput,
 ) -> LayoutOutput {
+    let scale_factor = tree.scale_factor as f32;
     layout_input.known_dimensions = Size::NONE;
     layout_input.run_mode = RunMode::PerformLayout; //TODO: We should respect the run mode
                                                     // layout_input.sizing_mode = SizingMode::ContentSize;
@@ -237,7 +238,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
     let mut font_context = FONT_CX.lock().unwrap();
 
-    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, tree.scale_factor as f32);
+    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, scale_factor);
     let mut align = parley::Alignment::default();
 
     // The first text node is the default style for the text. This is why this is treated separately.
@@ -381,7 +382,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     drop(font_context);
 
     let max_width = match layout_input.available_space.width {
-        AvailableSpace::Definite(width) => Some(width),
+        AvailableSpace::Definite(width) => Some(width * scale_factor),
         AvailableSpace::MinContent => Some(0.0),
         AvailableSpace::MaxContent => None,
     };
@@ -397,8 +398,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     );
 
     let content_size = Size {
-        width: layout.width().ceil(),
-        height: layout.height().ceil(),
+        width: layout.width().ceil() / scale_factor,
+        height: layout.height().ceil() / scale_factor,
     };
 
     let mut current_node_idx = 0;
@@ -567,6 +568,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             layout.offset.y -= location.y;
         }
 
+        // reduce layout size to logical size
+        size = Size::new(size.width / scale_factor, size.height / scale_factor).unwrap_or(size);
         tree.set_unrounded_layout(
             NodeId::new(current_node_id.into()),
             &Layout {

@@ -40,7 +40,7 @@ pub struct GsText {
 
 impl TText for GsText {
     // fn new<TL: TextLayout>(layout: &TL) -> Self {
-    fn new(layout: &impl TextLayout) -> Self {
+    fn new(layout: &impl TextLayout, _scale_factor: f64) -> Self {
         let glyphs = layout
             .glyphs()
             .iter()
