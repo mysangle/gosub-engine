@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use cow_utils::CowUtils;
 use vello::wgpu::{
-    Adapter, Backends, CompositeAlphaMode, Instance, PowerPreference, Queue, Surface, SurfaceConfiguration
+    Adapter, Backends, CompositeAlphaMode, Instance, PowerPreference, Queue, Surface, SurfaceConfiguration, Texture, TextureView,
 };
 use vello::wgpu::{Device, TextureFormat};
 use vello::{AaSupport, Renderer as VelloRenderer, RendererOptions as VelloRendererOptions};
@@ -180,6 +180,9 @@ impl Renderer {
 pub struct SurfaceWrapper<'a> {
     pub surface: Surface<'a>,
     pub config: SurfaceConfiguration,
+    
+    pub target_texture: Texture,
+    pub target_view: TextureView,
 }
 
 impl InstanceAdapter {
@@ -211,8 +214,11 @@ impl InstanceAdapter {
             alpha_mode: CompositeAlphaMode::Auto,
             view_formats: vec![],
         };
+        
+        let (target_texture, target_view) =
+            create_intermediate_texture(width, height, &self.device);
 
-        let surface = SurfaceWrapper { surface, config };
+        let surface = SurfaceWrapper { surface, config, target_texture, target_view };
 
         self.configure_surface(&surface);
 
@@ -222,10 +228,36 @@ impl InstanceAdapter {
     pub fn resize_surface(&self, surface: &mut SurfaceWrapper, width: u32, height: u32) {
         surface.config.width = width;
         surface.config.height = height;
+        
+        let (target_texture, target_view) =
+            create_intermediate_texture(width, height, &self.device);
+        
+        surface.target_texture = target_texture;
+        surface.target_view = target_view;
+        
         self.configure_surface(surface);
     }
 
     fn configure_surface(&self, surface: &SurfaceWrapper) {
         surface.surface.configure(&self.device, &surface.config);
     }
+}
+
+fn create_intermediate_texture(width: u32, height: u32, device: &Device) -> (Texture, TextureView) {
+    let target_texture = device.create_texture(&vello::wgpu::TextureDescriptor {
+        label: None,
+        size: vello::wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: vello::wgpu::TextureDimension::D2,
+        usage: vello::wgpu::TextureUsages::STORAGE_BINDING | vello::wgpu::TextureUsages::TEXTURE_BINDING,
+        format: TextureFormat::Rgba8Unorm,
+        view_formats: &[],
+    });
+    let target_view = target_texture.create_view(&vello::wgpu::TextureViewDescriptor::default());
+    (target_texture, target_view)
 }
