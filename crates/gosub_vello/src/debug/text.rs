@@ -6,7 +6,7 @@ use skrifa;
 use skrifa::{FontRef, MetadataProvider};
 use std::sync::{Arc, LazyLock};
 use vello::peniko::{Blob, BrushRef, Fill, Font, Style, StyleRef};
-use vello_encoding::Glyph;
+use vello::Glyph;
 use vello_encoding::NormalizedCoord as VelloNormalizedCoord;
 
 static FONT: LazyLock<Font> = LazyLock::new(|| Font::new(Blob::new(Arc::new(ROBOTO_FONT)), 0));

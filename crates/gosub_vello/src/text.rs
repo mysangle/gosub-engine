@@ -5,8 +5,7 @@ use gosub_interface::render_backend::{RenderText, Text as TText};
 use gosub_shared::geo::{NormalizedCoord, Point, FP};
 use vello::kurbo::{Affine, Line, Stroke};
 use vello::peniko::{Blob, Brush, Color, Fill, Font as PenikoFont, StyleRef};
-use vello::Scene;
-use vello_encoding::Glyph;
+use vello::{Glyph, Scene};
 
 #[derive(Clone, Debug)]
 pub struct Text {

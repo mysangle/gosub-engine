@@ -65,10 +65,11 @@ impl ApplicationHandler for App<'_> {
         let renderer = Renderer::new(
             &dev_handle.device,
             RendererOptions {
-                surface_format: Some(surface.format),
+                //surface_format: Some(surface.format),
                 use_cpu: false,
                 antialiasing_support: AA_CONFIGS.iter().copied().collect(),
                 num_init_threads: NonZeroUsize::new(0),
+                pipeline_cache: None,
             },
         );
 
