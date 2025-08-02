@@ -3,12 +3,8 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use cow_utils::CowUtils;
-use vello::wgpu::util::{
-    backend_bits_from_env, dx12_shader_compiler_from_env, gles_minor_version_from_env, power_preference_from_env,
-};
 use vello::wgpu::{
-    Adapter, Backends, CompositeAlphaMode, Dx12Compiler, Gles3MinorVersion, Instance, InstanceDescriptor,
-    PowerPreference, Queue, Surface, SurfaceConfiguration,
+    Adapter, Backends, CompositeAlphaMode, Instance, PowerPreference, Queue, Surface, SurfaceConfiguration
 };
 use vello::wgpu::{Device, TextureFormat};
 use vello::{AaSupport, Renderer as VelloRenderer, RendererOptions as VelloRendererOptions};
@@ -18,17 +14,7 @@ use gosub_shared::types::Result;
 
 pub mod window;
 
-const DEFAULT_POWER_PREFERENCE: PowerPreference = PowerPreference::None;
-const DEFAULT_BACKENDS: Backends = Backends::PRIMARY;
-const DEFAULT_DX12COMPILER: Dx12Compiler = Dx12Compiler::Dxc {
-    dxil_path: None,
-    dxc_path: None,
-};
-
-const DEFAULT_GLES3_MINOR_VERSION: Gles3MinorVersion = Gles3MinorVersion::Automatic;
-
 pub const RENDERER_CONF: VelloRendererOptions = VelloRendererOptions {
-    surface_format: None,
     use_cpu: false,
     antialiasing_support: AaSupport {
         area: true,
@@ -36,6 +22,7 @@ pub const RENDERER_CONF: VelloRendererOptions = VelloRendererOptions {
         msaa16: true,
     },
     num_init_threads: NonZeroUsize::new(1),
+    pipeline_cache: None,
 };
 
 #[derive(Clone, Debug)]
@@ -53,9 +40,6 @@ pub struct InstanceAdapter {
 
 pub struct RendererOptions {
     pub power_preference: Option<PowerPreference>,
-    pub backends: Option<Backends>,
-    pub dx12compiler: Option<Dx12Compiler>,
-    pub gles3minor_version: Option<Gles3MinorVersion>,
     #[cfg(not(target_arch = "wasm32"))]
     pub adapter: Option<String>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -65,10 +49,7 @@ pub struct RendererOptions {
 impl Default for RendererOptions {
     fn default() -> Self {
         Self {
-            power_preference: power_preference_from_env(),
-            backends: backend_bits_from_env(),
-            dx12compiler: dx12_shader_compiler_from_env(),
-            gles3minor_version: gles_minor_version_from_env(),
+            power_preference: PowerPreference::from_env(),
             #[cfg(not(target_arch = "wasm32"))]
             adapter: std::env::var("WGPU_ADAPTER_NAME").ok(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -79,9 +60,6 @@ impl Default for RendererOptions {
 
 struct RenderConfig {
     pub power_preference: PowerPreference,
-    pub backends: Backends,
-    pub dx12compiler: Dx12Compiler,
-    pub gles3minor_version: Gles3MinorVersion,
     #[cfg(not(target_arch = "wasm32"))]
     pub adapter: Option<String>,
     #[cfg(not(target_arch = "wasm32"))]
@@ -93,16 +71,7 @@ impl From<RendererOptions> for RenderConfig {
         Self {
             power_preference: opts
                 .power_preference
-                .unwrap_or(power_preference_from_env().unwrap_or(DEFAULT_POWER_PREFERENCE)),
-            backends: opts
-                .backends
-                .unwrap_or(backend_bits_from_env().unwrap_or(DEFAULT_BACKENDS)),
-            dx12compiler: opts
-                .dx12compiler
-                .unwrap_or(dx12_shader_compiler_from_env().unwrap_or(DEFAULT_DX12COMPILER)),
-            gles3minor_version: opts
-                .gles3minor_version
-                .unwrap_or(gles_minor_version_from_env().unwrap_or(DEFAULT_GLES3_MINOR_VERSION)),
+                .unwrap_or(PowerPreference::from_env().unwrap_or_default()),
             #[cfg(not(target_arch = "wasm32"))]
             adapter: opts.adapter,
             #[cfg(not(target_arch = "wasm32"))]
@@ -121,11 +90,10 @@ impl Renderer {
     }
 
     async fn get_adapter(config: RenderConfig) -> Result<InstanceAdapter> {
-        let instance = Instance::new(InstanceDescriptor {
-            backends: config.backends,
-            dx12_shader_compiler: config.dx12compiler,
-            gles_minor_version: config.gles3minor_version,
-            ..Default::default()
+        let instance = Instance::new(&vello::wgpu::InstanceDescriptor {
+            backends: vello::wgpu::Backends::from_env().unwrap_or_default(),
+            flags: vello::wgpu::InstanceFlags::from_build_config().with_env(),
+            backend_options: vello::wgpu::BackendOptions::from_env_or_default(),
         });
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -184,8 +152,8 @@ impl Renderer {
             features -= vello::wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
         }
 
-        features -= vello::wgpu::Features::RAY_QUERY;
-        features -= vello::wgpu::Features::RAY_TRACING_ACCELERATION_STRUCTURE;
+        // features -= vello::wgpu::Features::RAY_QUERY;
+        // features -= vello::wgpu::Features::RAY_TRACING_ACCELERATION_STRUCTURE;
 
         let (device, queue) = adapter
             .request_device(
@@ -215,11 +183,8 @@ pub struct SurfaceWrapper<'a> {
 }
 
 impl InstanceAdapter {
-    pub fn create_renderer(&self, surface_format: Option<TextureFormat>) -> Result<VelloRenderer> {
-        let mut conf = RENDERER_CONF;
-        conf.surface_format = surface_format;
-
-        VelloRenderer::new(&self.device, conf).map_err(|e| anyhow!(e.to_string()))
+    pub fn create_renderer(&self) -> Result<VelloRenderer> {
+        VelloRenderer::new(&self.device, RENDERER_CONF).map_err(|e| anyhow!(e.to_string()))
     }
     pub fn create_surface<'a>(
         &self,

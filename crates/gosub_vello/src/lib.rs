@@ -5,6 +5,7 @@ use gosub_fontmanager::FontManager;
 use log::info;
 use vello::kurbo::Point as VelloPoint;
 use vello::peniko::Color as VelloColor;
+use vello::wgpu::{CommandEncoderDescriptor, Device, Texture, TextureFormat, TextureView, TextureViewDescriptor, util::TextureBlitter};
 use vello::{AaConfig, RenderParams, Scene as VelloScene};
 
 pub use border::*;
@@ -107,7 +108,7 @@ impl RenderBackend for VelloBackend {
             data.adapter
                 .create_surface(handle, size.width, size.height, vello::wgpu::PresentMode::AutoVsync)?;
 
-        let renderer = data.adapter.create_renderer(Some(surface.config.format))?;
+        let renderer = data.adapter.create_renderer()?;
 
         data.renderer = renderer;
 
@@ -134,7 +135,7 @@ impl RenderBackend for VelloBackend {
 
         let adapter = renderer.instance_adapter;
 
-        let renderer = adapter.create_renderer(None)?;
+        let renderer = adapter.create_renderer()?;
 
         info!("Created renderer");
 
@@ -167,14 +168,16 @@ impl RenderBackend for VelloBackend {
         let width = active_data.surface.config.width;
 
         let surface_texture = active_data.surface.surface.get_current_texture()?;
+        let (target_texture, target_view) =
+            create_intermediate_texture(width, height, &window_data.adapter.device);
 
         window_data
             .renderer
-            .render_to_surface(
+            .render_to_texture(
                 &window_data.adapter.device,
                 &window_data.adapter.queue,
                 &window_data.scene.0,
-                &surface_texture,
+                &target_view,
                 &RenderParams {
                     base_color: VelloColor::WHITE,
                     width,
@@ -183,8 +186,27 @@ impl RenderBackend for VelloBackend {
                 },
             )
             .map_err(|e| anyhow!(e.to_string()))?;
+        
+        let mut encoder = window_data.adapter
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Surface Blit"),
+            });
+
+        let blitter = TextureBlitter::new(&window_data.adapter.device, active_data.surface.config.format);
+        blitter.copy(
+            &window_data.adapter.device,
+            &mut encoder,
+            &target_view,
+            &surface_texture
+                .texture
+                .create_view(&TextureViewDescriptor::default()),
+        );
+        window_data.adapter.queue.submit([encoder.finish()]);
 
         surface_texture.present();
+        
+        window_data.adapter.device.poll(vello::wgpu::Maintain::Wait);
 
         Ok(())
     }
@@ -219,4 +241,23 @@ impl Convert<VelloPoint> for Point {
     fn convert(self) -> VelloPoint {
         VelloPoint::new(self.x as f64, self.y as f64)
     }
+}
+
+fn create_intermediate_texture(width: u32, height: u32, device: &Device) -> (Texture, TextureView) {
+    let target_texture = device.create_texture(&vello::wgpu::TextureDescriptor {
+        label: None,
+        size: vello::wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: vello::wgpu::TextureDimension::D2,
+        usage: vello::wgpu::TextureUsages::STORAGE_BINDING | vello::wgpu::TextureUsages::TEXTURE_BINDING,
+        format: TextureFormat::Rgba8Unorm,
+        view_formats: &[],
+    });
+    let target_view = target_texture.create_view(&vello::wgpu::TextureViewDescriptor::default());
+    (target_texture, target_view)
 }
