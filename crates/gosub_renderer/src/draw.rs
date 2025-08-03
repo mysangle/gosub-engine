@@ -55,10 +55,14 @@ pub struct TreeDrawerImpl<C: HasDrawComponents> {
     pub(crate) scene_transform: Option<<C::RenderBackend as RenderBackend>::Transform>,
     pub(crate) img_cache: ImageCache<C::RenderBackend>,
     pub(crate) scale_factor: f64,
+    // background-color of <html> tag
+    pub(crate) background_color: (u8, u8, u8, u8),
 }
 
 impl<C: HasDrawComponents> TreeDrawerImpl<C> {
     pub fn new(tree: C::RenderTree, layouter: C::Layouter, fetcher: Arc<Fetcher>, debug: bool) -> Self {
+        let color: <C::RenderBackend as RenderBackend>::Color = Color::WHITE;
+        let background_color = (color.r(), color.g(), color.b(), color.a());
         Self {
             tree,
             fetcher,
@@ -74,6 +78,7 @@ impl<C: HasDrawComponents> TreeDrawerImpl<C> {
             scene_transform: None,
             img_cache: ImageCache::new(),
             scale_factor: 1.,
+            background_color: background_color, // WHITE
         }
     }
 }
@@ -94,8 +99,8 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
             if let Some(scene_transform) = self.scene_transform.as_mut() {
                 let root_size = self.tree.get_root().layout.content();
                 // Calculate max_x and max_y, ensuring they are not negative cause if the root size is smaller than the size, max_x/max_y should be 0
-                let max_x = (root_size.width - size.width as f32).max(0.0);
-                let max_y = (root_size.height - size.height as f32).max(0.0);
+                let max_x = (root_size.width * scale_factor as f32 - size.width as f32).max(0.0);
+                let max_y = (root_size.height * scale_factor as f32 - size.height as f32).max(0.0);
 
                 let x = scene_transform.tx().min(0.0).max(-max_x);
                 let y = scene_transform.ty().min(0.0).max(-max_y);
@@ -109,7 +114,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
                 svg: Arc::new(Mutex::new(<C::RenderBackend as RenderBackend>::SVGRenderer::new())),
                 el,
             };
-
+            
             drawer.render(size, scale_factor);
 
             self.tree_scene = Some(scene);
@@ -123,7 +128,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
             rect: bg,
             transform: None,
             radius: None,
-            brush: Brush::color(Color::WHITE),
+            brush: Brush::color(Color::rgba(self.background_color.0, self.background_color.1, self.background_color.2, self.background_color.3)),
             brush_transform: None,
             border: None,
         };
@@ -199,8 +204,8 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         let root_size = self.tree.get_root().layout.content();
         let size = self.size.unwrap_or(SizeU32::ZERO);
 
-        let max_x = root_size.width - size.width as f32;
-        let max_y = root_size.height - size.height as f32;
+        let max_x = root_size.width * self.scale_factor as f32 - size.width as f32;
+        let max_y = root_size.height * self.scale_factor as f32 - size.height as f32;
         if max_y < 0 as f32 {
             return;
         }
@@ -402,16 +407,7 @@ impl<
                     });
                 
                 if let Some(bg_color) = background_color {
-                    let rect = TRect::new(0. as FP, 0. as FP, size.width as FP, size.height as FP);
-                    let rect = RenderRect {
-                        rect,
-                        transform: None,
-                        radius: None,
-                        brush: Brush::color(Color::rgba(bg_color.0 as u8, bg_color.1 as u8, bg_color.2 as u8, bg_color.3 as u8)),
-                        brush_transform: None,
-                        border: None,
-                    };
-                    self.scene.draw_rect(&rect);
+                    self.drawer.background_color = (bg_color.0 as u8, bg_color.1 as u8, bg_color.2 as u8, bg_color.3 as u8);
                 }
             }
         }
@@ -504,7 +500,7 @@ impl<
             }
         }
 
-        render_text::<C>(node, pos, self.scene,scale_factor);
+        render_text::<C>(node, pos, self.scene, scale_factor);
 
         if let Some(new) = size_change {
             let node = self
