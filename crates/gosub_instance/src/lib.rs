@@ -14,6 +14,7 @@ use log::warn;
 use std::sync::mpsc::Sender as SyncSender;
 use std::sync::Arc;
 use tokio::runtime::{Builder, Handle, Runtime};
+use tokio::select;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task;
 use tokio::task::LocalSet;
@@ -113,9 +114,21 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
         let set = LocalSet::new();
 
         set.block_on(rt, async move {
-            while let Some(message) = self.rx.recv().await {
-                if let Err(e) = self.handle_message(message).await {
-                    warn!("Error: {:?}", e);
+            loop {
+                select! {
+                    Some(message) = self.rx.recv() => {
+                        if let Err(e) = self.handle_message(message).await {
+                            warn!("Error: {:?}", e);
+                        }
+                    }
+                    Some(message) = self.irx.recv() => {
+                        if let Err(e) = self.handle_internal_message(message).await {
+                            warn!("Error: {:?}", e);
+                        }
+                    }
+                    else => {
+                        warn!("both rx and irx are closed");
+                    }
                 }
             }
         });
@@ -205,6 +218,13 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
                             self.redraw();
                         }
                     }
+                    InputEvent::MouseDown(button) => {
+                        _ = self.data.mouse_down(button);
+                    }
+                    InputEvent::MouseUp(button) => {
+                        let el = self.el.clone();
+                        _ = self.data.mouse_up(button, el);
+                    }
                     _ => {}
                 }
 
@@ -212,6 +232,23 @@ impl<C: ModuleConfiguration> EngineInstance<C> {
             }
         }
 
+        Ok(())
+    }
+    
+    async fn handle_internal_message(&mut self, message: InternalInstanceMessage<C>) -> Result<()> {
+        match message {
+            InternalInstanceMessage::Image(_url, _buf, _size) => {
+                
+            }
+            InternalInstanceMessage::Redraw => {
+                self.redraw();
+            }
+            InternalInstanceMessage::ReloadFrom(rt) => {
+                self.data.reload_from(rt);
+                self.redraw();
+            }
+        }
+        
         Ok(())
     }
 

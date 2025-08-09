@@ -9,6 +9,7 @@ use gosub_interface::css3::{CssProperty, CssPropertyMap, CssValue};
 
 use gosub_interface::draw::TreeDrawer;
 use gosub_interface::eventloop::EventLoopHandle;
+use gosub_interface::input::MouseButton;
 use gosub_interface::layout::{Layout, LayoutTree, Layouter};
 use gosub_interface::render_backend::{
     Border, BorderSide, BorderStyle, Brush, Color, ImageBuffer, ImgCache, NodeDesc, Rect as TRect, RenderBackend, RenderBorder,
@@ -27,7 +28,8 @@ use log::{error, info};
 use std::future::Future;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
-use url::Url;
+use tokio::task;
+use url::{ParseError, Url};
 
 mod img;
 pub mod img_cache;
@@ -47,6 +49,7 @@ pub struct TreeDrawerImpl<C: HasDrawComponents> {
     pub(crate) size: Option<SizeU32>,
     pub(crate) position: PositionTree<C>,
     pub(crate) last_hover: Option<NodeId>,
+    pub(crate) mousedown_node_id: Option<NodeId>,
     pub(crate) debug: bool,
     pub(crate) dirty: bool,
     pub(crate) debugger_scene: Option<<C::RenderBackend as RenderBackend>::Scene>,
@@ -70,6 +73,7 @@ impl<C: HasDrawComponents> TreeDrawerImpl<C> {
             size: None,
             position: PositionTree::default(),
             last_hover: None,
+            mousedown_node_id: None,
             debug,
             debugger_scene: None,
             dirty: false,
@@ -176,22 +180,94 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
     }
 
     fn mouse_move(&mut self, x: FP, y: FP) -> bool {
-        let scale_factor = self.scale_factor as f32;
-        
         let x = x - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).tx();
         let y = y - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).ty();
-        let x = x / scale_factor;
-        let y = y / scale_factor;
 
         if let Some(e) = self.position.find(x, y) {
             if self.last_hover != Some(e) {
                 self.last_hover = Some(e);
                 if self.debug {
-                    return self.debug_annotate(e, scale_factor);
+                    return self.debug_annotate(e, self.scale_factor as f32);
                 }
             }
-            return false;
         };
+        false
+    }
+    
+    fn mouse_down(&mut self, _button: MouseButton) -> bool{
+        if self.mousedown_node_id != self.last_hover {
+            self.mousedown_node_id = self.last_hover;
+            return true;
+        }
+        false
+    }
+    
+    fn mouse_up(&mut self, button: MouseButton, el: impl EventLoopHandle<C>) -> bool {
+        if self.mousedown_node_id == self.last_hover {
+            self.mousedown_node_id = None;
+            
+            let mut maybe_node_id = self.last_hover;
+            while let Some(node_id) = maybe_node_id {
+                let maybe_node = self.tree.get_node(node_id);
+                let Some(node) = maybe_node else {
+                    maybe_node_id = self.tree.parent_id(node_id);
+                    continue;
+                };
+        
+                let disabled = node.element_attributes().is_some_and(|attributes| {
+                    attributes.get("disabled").is_some()
+                });
+                if disabled {
+                    return false;
+                }
+                
+                match node.name() {
+                    "a" => {
+                        if let Some(href) = node.element_attributes().map(|attributes| {
+                            attributes.get("href")
+                        }).flatten() {
+                            // parse url
+                            let mut is_absolute_url = false;
+                            let url = match Url::parse(href) {
+                                Ok(url) => {
+                                    // absolute url
+                                    is_absolute_url = true;
+                                    Some(url)
+                                }
+                                Err(ParseError::RelativeUrlWithoutBase) => {
+                                    // relative url
+                                    self.fetcher.base().join(href).ok()
+                                }
+                                _ => None,
+                            };
+                            
+                            if let Some(url) = url {
+                                match button {
+                                    MouseButton::Left => {
+                                        if is_absolute_url {
+                                            // update base_url
+                                            self.fetcher = Arc::new(Fetcher::new(url.clone()));
+                                        }
+                                        task::spawn_local(self.navigate(url, el));
+                                        return true;
+                                    }
+                                    _ => {
+                                        
+                                    }
+                                }
+                            }
+                            
+                            return false;
+                        }
+                    }
+                    _ => {
+                        
+                    }
+                }
+                
+                maybe_node_id = self.tree.parent_id(node_id);
+            }
+        }
         false
     }
 
@@ -248,6 +324,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         self.tree_scene = None;
         self.debugger_scene = None;
         self.last_hover = None;
+        self.mousedown_node_id = None;
         self.dirty = true;
     }
 
@@ -255,6 +332,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         self.debug = !self.debug;
         self.dirty = true;
         self.last_hover = None;
+        self.mousedown_node_id = None;
         self.debugger_scene = None;
     }
 
@@ -330,7 +408,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         el: impl EventLoopHandle<C>,
     ) -> impl Future<Output = Result<C::Document>> + 'static {
         let fetcher = self.fetcher.clone();
-
+        
         async move {
             info!("Navigating to {url}");
 
@@ -353,6 +431,7 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         self.size = None;
         self.position = PositionTree::default();
         self.last_hover = None;
+        self.mousedown_node_id = None;
         self.debugger_scene = None;
         self.dirty = false;
         self.tree_scene = None;

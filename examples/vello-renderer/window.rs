@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use gosub_interface::config::ModuleConfiguration;
 use gosub_interface::instance::{Handles, InstanceId};
 use gosub_interface::render_backend::RenderBackend;
-use gosub_shared::geo::SizeU32;
+use gosub_shared::geo::{Point, SizeU32};
 use gosub_shared::types::Result;
 use image::imageops::FilterType;
 use log::warn;
@@ -53,6 +53,7 @@ pub struct Window<'a, C: ModuleConfiguration> {
     pub(crate) mods: Modifiers,
     #[allow(dead_code)]
     pub(crate) handles: Handles<C>,
+    pub(crate) mouse_pos: Point,
 }
 
 impl<C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Window<'_, C> {
@@ -101,6 +102,7 @@ impl<C: ModuleConfiguration<ChromeHandle = WinitEventLoopHandle<C>>> Window<'_, 
             tabs: Tabs::default(),
             mods: Modifiers::default(),
             handles,
+            mouse_pos: Point::new(0., 0.),
         })
     }
 

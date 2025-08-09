@@ -2094,6 +2094,7 @@ dependencies = [
  "image",
  "log",
  "pango 0.20.9",
+ "tokio",
  "url",
  "wasm-bindgen-futures",
  "web-sys",
