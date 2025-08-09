@@ -1,5 +1,6 @@
 use crate::config::{HasDocument, HasDrawComponents, HasHtmlParser};
 use crate::eventloop::EventLoopHandle;
+use crate::input::MouseButton;
 use crate::layout::LayoutTree;
 use crate::render_backend::{ImgCache, NodeDesc, RenderBackend};
 use gosub_net::http::fetcher::Fetcher;
@@ -15,6 +16,8 @@ pub trait TreeDrawer<C: HasDrawComponents> {
 
     fn draw(&mut self, size: SizeU32, scale_factor: f64, el: &impl EventLoopHandle<C>) -> <C::RenderBackend as RenderBackend>::Scene;
     fn mouse_move(&mut self, x: FP, y: FP) -> bool;
+    fn mouse_down(&mut self, button: MouseButton) -> bool;
+    fn mouse_up(&mut self, button: MouseButton, el: impl EventLoopHandle<C>) -> bool;
 
     fn scroll(&mut self, point: Point);
     fn from_url(

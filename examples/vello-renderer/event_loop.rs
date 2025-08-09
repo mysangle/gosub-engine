@@ -47,11 +47,14 @@ impl<C: ModuleConfiguration> Window<'_, C> {
                 let Some(tab) = self.tabs.get_current_tab() else {
                     return Ok(());
                 };
+                
+                let winit::dpi::LogicalPosition::<f32> { x, y } = position.to_logical(self.window.scale_factor());
+                self.mouse_pos = Point::new(x, y);
 
                 tab.tx
                     .blocking_send(InstanceMessage::Input(InputEvent::MouseMove(Point::new(
-                        position.x as FP,
-                        position.y as FP,
+                        x as FP,
+                        y as FP,
                     ))))?;
             }
 
