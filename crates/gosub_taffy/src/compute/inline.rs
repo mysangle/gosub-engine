@@ -1,6 +1,6 @@
-use parley::fontique::{FallbackKey, FontWeight, Script};
+use parley::fontique::{Blob, FallbackKey, FontWeight, Script};
 use parley::{AlignmentOptions, FontContext};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use taffy::{
     AvailableSpace, CollapsibleMarginSet, Layout, LayoutInput, LayoutOutput, LayoutPartialTree, NodeId, Point, Rect,
     RunMode, Size,
@@ -20,7 +20,7 @@ use crate::{Display, LayoutDocument, TaffyLayouter};
 static FONT_CX: LazyLock<Mutex<FontContext>> = LazyLock::new(|| {
     let mut ctx = FontContext::default();
 
-    let fonts = ctx.collection.register_fonts(ROBOTO_FONT.to_vec());
+    let fonts = ctx.collection.register_fonts(Blob::new(Arc::new(ROBOTO_FONT)), None);
 
     ctx.collection
         .append_fallbacks(FallbackKey::new(Script::from("Latn"), None), fonts.iter().map(|f| f.0));
@@ -238,7 +238,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
     let mut font_context = FONT_CX.lock().unwrap();
 
-    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, scale_factor);
+    let mut builder = layout_cx.ranged_builder(&mut font_context, &str_buf, scale_factor, true);
     let mut align = parley::Alignment::default();
 
     // The first text node is the default style for the text. This is why this is treated separately.
@@ -250,7 +250,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
         )));
         builder.push_default(parley::StyleProperty::FontSize(default.font_size));
         if let Some(line_height) = default.line_height {
-            builder.push_default(parley::StyleProperty::LineHeight(line_height));
+            builder.push_default(parley::StyleProperty::LineHeight(parley::LineHeight::MetricsRelative(line_height)));
         }
         if let Some(word_spacing) = default.word_spacing {
             builder.push_default(parley::StyleProperty::WordSpacing(word_spacing));
@@ -305,7 +305,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             );
             builder.push(parley::StyleProperty::FontSize(text_node.font_size), from..text_node.to);
             if let Some(line_height) = text_node.line_height {
-                builder.push(parley::StyleProperty::LineHeight(line_height), from..text_node.to);
+                builder.push(parley::StyleProperty::LineHeight(parley::LineHeight::MetricsRelative(line_height)), from..text_node.to);
             }
             if let Some(word_spacing) = text_node.word_spacing {
                 builder.push(parley::StyleProperty::WordSpacing(word_spacing), from..text_node.to);
