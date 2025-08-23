@@ -1398,26 +1398,16 @@ dependencies = [
 
 [[package]]
 name = "fontique"
-<<<<<<< HEAD
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64763d1f274c8383333851435b6cdf071c31cfcdb39fd5860d20943205a007a7"
-=======
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39f97079e1293b8c1e9fb03a2875d328bd2ee8f3b95ce62959c0acc04049c708"
->>>>>>> 03a6660 (update parley to 0.5.0)
 dependencies = [
  "bytemuck",
  "fontconfig-cache-parser",
  "hashbrown",
  "icu_locid",
  "memmap2",
-<<<<<<< HEAD
- "objc2 0.6.1",
-=======
  "objc2 0.6.2",
->>>>>>> 03a6660 (update parley to 0.5.0)
  "objc2-core-foundation",
  "objc2-core-text",
  "objc2-foundation 0.3.1",
@@ -3433,11 +3423,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900831247d2fe1a09a683278e5384cfb8c80c79fe6b166f9d14bfdde0ea1b03c"
 dependencies = [
  "bitflags 2.9.0",
-<<<<<<< HEAD
- "objc2 0.6.1",
-=======
  "objc2 0.6.2",
->>>>>>> 03a6660 (update parley to 0.5.0)
 ]
 
 [[package]]
@@ -3691,15 +3677,9 @@ dependencies = [
 
 [[package]]
 name = "parley"
-<<<<<<< HEAD
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e28dadbe655332fd7d996794ec8d0c376695f6ca47bc75aa01e0967c7f28e42a"
-=======
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13e57638545cf2ba4c3e72cc5715e53b1880b829cc3dbefda3d1700c58efe723"
->>>>>>> 03a6660 (update parley to 0.5.0)
 dependencies = [
  "fontique",
  "hashbrown",
