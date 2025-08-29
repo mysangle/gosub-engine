@@ -180,8 +180,8 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
     }
 
     fn mouse_move(&mut self, x: FP, y: FP) -> bool {
-        let x = x - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).tx();
-        let y = y - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).ty();
+        let x = x - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).tx() / self.scale_factor as f32;
+        let y = y - self.scene_transform.clone().unwrap_or(Transform::IDENTITY).ty() / self.scale_factor as f32;
 
         if let Some(e) = self.position.find(x, y) {
             if self.last_hover != Some(e) {
@@ -990,13 +990,10 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         let Some(layout) = self.tree.get_layout(e) else {
             return false;
         };
+        
         let size = layout.size();
-        let size = Size::new(size.width * scale_factor, size.height * scale_factor);
-
         let padding = layout.padding();
-        let padding = Rect::new(padding.x1 * scale_factor, padding.x2 * scale_factor, padding.y1 * scale_factor, padding.y2 * scale_factor);
         let border_size = layout.border();
-        let border_size = Rect::new(border_size.x1 * scale_factor, border_size.x2 * scale_factor, border_size.y1 * scale_factor, border_size.y2 * scale_factor);
         
         let Some((x, y)) = self.position.position(e) else {
             return false;
@@ -1007,7 +1004,10 @@ impl<C: HasDrawComponents<RenderTree = RenderTree<C>, LayoutTree = RenderTree<C>
         
         let x = x * scale_factor;
         let y = y * scale_factor;
-
+        let size = Size::new(size.width * scale_factor, size.height * scale_factor);
+        let padding = Rect::new(padding.x1 * scale_factor, padding.x2 * scale_factor, padding.y1 * scale_factor, padding.y2 * scale_factor);
+        let border_size = Rect::new(border_size.x1 * scale_factor, border_size.x2 * scale_factor, border_size.y1 * scale_factor, border_size.y2 * scale_factor);
+        
         let content_rect = TRect::new(x, y, size.width as FP, size.height as FP);
 
         let padding_brush = <C::RenderBackend as RenderBackend>::Brush::color(
