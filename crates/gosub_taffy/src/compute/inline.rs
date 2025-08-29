@@ -216,8 +216,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
             inline_boxes.push(parley::InlineBox {
                 id: child_node_id.into(),
                 index: str_buf.len(),
-                height: size.height,
-                width: size.width,
+                height: size.height * scale_factor,
+                width: size.width * scale_factor,
             });
         }
     }
@@ -382,12 +382,12 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     drop(font_context);
 
     let max_width = match layout_input.available_space.width {
-        AvailableSpace::Definite(width) => Some(width * scale_factor),
+        AvailableSpace::Definite(width) => Some(width),
         AvailableSpace::MinContent => Some(0.0),
         AvailableSpace::MaxContent => None,
     };
 
-    layout.break_all_lines(max_width);
+    layout.break_all_lines(max_width.map(|w| w * scale_factor));
 
     layout.align(
         None,
@@ -398,8 +398,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     );
 
     let content_size = Size {
-        width: layout.width().ceil() / scale_factor,
-        height: layout.height().ceil() / scale_factor,
+        width: layout.width().ceil(),
+        height: layout.height().ceil(),
     };
 
     let mut current_node_idx = 0;
@@ -460,7 +460,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
                     let size = geo::Size {
                         width: run.advance(),
-                        height,
+                        height: height,
                     };
 
                     let coords = grun.normalized_coords().to_owned();
@@ -489,7 +489,7 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
 
                     let text_layout = TextLayout {
                         glyphs,
-                        size,
+                        size: size,
                         font_size: fs,
                         // Actual font that is resolved by the layouter which is used for these set of glyphs
                         font_data: FontBlob::new(font_data, font.index),
@@ -517,8 +517,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
                     let id = NodeId::from(inline_box.id);
 
                     let size = Size {
-                        width: inline_box.width,
-                        height: inline_box.height,
+                        width: inline_box.width / scale_factor,
+                        height: inline_box.height / scale_factor,
                     };
 
                     tree.set_unrounded_layout(
@@ -596,8 +596,8 @@ pub fn compute_inline_layout<C: HasLayouter<Layouter = TaffyLayouter>>(
     }
 
     LayoutOutput {
-        size: content_size,
-        content_size,
+        size: size.map(|v| v / scale_factor),
+        content_size: size.map(|v| v / scale_factor),
         first_baselines: Point::NONE,
         top_margin: CollapsibleMarginSet::ZERO,
         bottom_margin: CollapsibleMarginSet::ZERO,
