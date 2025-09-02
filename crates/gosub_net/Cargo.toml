@@ -10,7 +10,7 @@ description = "Network utitilies"
 gosub_shared = { version = "0.1.1", registry = "gosub", path = "../gosub_shared", features = [] }
 gosub_config = { version = "0.1.1", registry = "gosub", path = "../gosub_config", features = [] }
 derive_more = { version = "2", features = ["from", "display"] }
-thiserror = "2.0.11"
+thiserror = "2.0.16"
 anyhow = "1.0.98"
 log = "0.4.27"
 domain-lookup-tree = "0.1"
