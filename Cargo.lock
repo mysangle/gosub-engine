@@ -1888,7 +1888,7 @@ dependencies = [
  "image",
  "kurbo",
  "log",
- "peniko 0.3.1",
+ "peniko 0.4.0",
  "smallvec",
 ]
 
@@ -3714,12 +3714,13 @@ dependencies = [
 
 [[package]]
 name = "peniko"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ec061f435b573ff602b2c5690f1a5bfcf461327194654cfbfce4412b95cf2a1"
+checksum = "5c1f594c54ccdc9bd177a726885f066bf28d20e17169e31a8a1456217b1316b4"
 dependencies = [
  "color 0.2.3",
  "kurbo",
+ "peniko 0.4.0",
  "smallvec",
 ]
 
@@ -5456,7 +5457,7 @@ checksum = "3d5b0bafa35e0c2e4132104576d6bcec4bf7cd0044f1760e92ecae0d4d9bc0e7"
 dependencies = [
  "bytemuck",
  "log",
- "peniko 0.3.1",
+ "peniko 0.3.2",
  "png",
  "skrifa 0.26.6",
  "static_assertions",
@@ -5491,7 +5492,7 @@ checksum = "cbbdec68dea2b39ece9f82ab15ec4cf2c4f8600ce6926df0638290702d95b3f7"
 dependencies = [
  "bytemuck",
  "guillotiere",
- "peniko 0.3.1",
+ "peniko 0.3.2",
  "skrifa 0.26.6",
  "smallvec",
 ]
