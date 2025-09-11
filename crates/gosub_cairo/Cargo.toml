@@ -16,5 +16,5 @@ smallvec = "1.15.1"
 
 cairo-rs = {  version = "0.19.4", features = ["use_glib", "freetype"] }
 kurbo = "0.11.2"
-peniko = "0.3.1"
+peniko = "0.4.0"
 log = "0.4.27"
