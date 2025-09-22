@@ -10,7 +10,7 @@ description = "Gosub shared code"
 chardet = "0.2.4"
 thiserror = "2.0.11"
 url = "2.5.4"
-anyhow = "1.0.98"
+anyhow = "1.0.100"
 lazy_static = "1.5.0"
 uuid = { version = "1.18.0", features = ["v4"] }
 rand = "0.9.1"
